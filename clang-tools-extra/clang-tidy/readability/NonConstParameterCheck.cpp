@@ -93,7 +93,7 @@ void NonConstParameterCheck::check(const MatchFinder::MatchResult &Result) {
   } else if (const auto *VD = Result.Nodes.getNodeAs<VarDecl>("Mark")) {
     const QualType T = VD->getType();
     if (T->isRecordType()) {
-      if (const auto *ILE = dyn_cast<InitListExpr>(VD->getInit())) {
+      if (const auto *ILE = dyn_cast_or_null<InitListExpr>(VD->getInit())) {
         const auto *D = T->getAs<RecordType>()->getDecl();
         unsigned InitNr = 0U;
         for (const auto *F : D->fields()) {
