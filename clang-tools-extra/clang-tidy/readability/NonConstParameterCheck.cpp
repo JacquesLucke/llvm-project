@@ -99,7 +99,6 @@ void NonConstParameterCheck::check(const MatchFinder::MatchResult &Result) {
         for (const auto *F : D->fields()) {
           if (InitNr >= ILE->getNumInits())
             break;
-
           const auto *Init = ILE->getInit(InitNr++);
           if (!F->getType().isConstQualified())
             markCanNotBeConst(Init, true);
