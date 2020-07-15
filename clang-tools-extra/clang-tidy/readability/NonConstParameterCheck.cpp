@@ -92,6 +92,21 @@ void NonConstParameterCheck::check(const MatchFinder::MatchResult &Result) {
     }
   } else if (const auto *VD = Result.Nodes.getNodeAs<VarDecl>("Mark")) {
     const QualType T = VD->getType();
+    if (T->isRecordType()) {
+      if (const auto *ILE = cast<InitListExpr>(VD->getInit())) {
+        const auto *D = T->getAs<RecordType>()->getDecl();
+        unsigned I = 0;
+        for (const auto *F : D->fields()) {
+          if (I >= ILE->getNumInits()) {
+            break;
+          }
+          const auto *Init = ILE->getInit(I++);
+          if (!F->getType().isConstQualified()) {
+            markCanNotBeConst(Init, true);
+          }
+        }
+      }
+    }
     if ((T->isPointerType() && !T->getPointeeType().isConstQualified()) ||
         T->isArrayType())
       markCanNotBeConst(VD->getInit(), true);
