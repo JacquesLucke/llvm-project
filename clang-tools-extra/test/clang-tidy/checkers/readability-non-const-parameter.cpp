@@ -189,7 +189,9 @@ unsigned callFunction5(char *buf) {
 void f6(int **p);
 void callFunction6(int *p) { f6(&p); }
 
-typedef union { void *v; } t;
+typedef union {
+  void *v;
+} t;
 void f7(t obj);
 void callFunction7(int *p) {
   f7((t){p});
@@ -217,10 +219,19 @@ void use_functionpointer2() {
 // Don't warn about nonconst record pointers that can be const.
 struct XY {
   int *x;
-  int *y;
+  const int *y;
 };
 void recordpointer(struct XY *xy) {
   *(xy->x) = 0;
+}
+// CHECK-MESSAGES: :[[@LINE+1]]:21: warning: pointer parameter 'y' can be
+void initlist1(int *y) {
+  // CHECK-FIXES: {{^}}void initlist1(const int *y) {{{$}}
+  XY xy = {nullptr, y};
+}
+// Don't warn when pointer is assigned to non-const struct member.
+void initlist2(int *x) {
+  XY xy = {x};
 }
 
 class C {
