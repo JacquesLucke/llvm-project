@@ -97,13 +97,12 @@ void NonConstParameterCheck::check(const MatchFinder::MatchResult &Result) {
         const auto *D = T->getAs<RecordType>()->getDecl();
         unsigned I = 0;
         for (const auto *F : D->fields()) {
-          if (I >= ILE->getNumInits()) {
+          if (I >= ILE->getNumInits())
             break;
-          }
+
           const auto *Init = ILE->getInit(I++);
-          if (!F->getType().isConstQualified()) {
+          if (!F->getType().isConstQualified())
             markCanNotBeConst(Init, true);
-          }
         }
       }
     }
