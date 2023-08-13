@@ -24,6 +24,7 @@
 #include "clang/AST/Mangle.h"
 #include "clang/Basic/ABI.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Sema/Sema.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/NoSanitizeList.h"
 #include "clang/Basic/TargetInfo.h"
@@ -80,6 +81,7 @@ class CXXDestructorDecl;
 class Module;
 class CoverageSourceInfo;
 class InitSegAttr;
+class Sema;
 
 namespace CodeGen {
 
@@ -299,6 +301,8 @@ public:
 
   typedef std::vector<Structor> CtorList;
 
+  Sema *TheSema = nullptr;
+
 private:
   ASTContext &Context;
   const LangOptions &LangOpts;
@@ -343,12 +347,13 @@ private:
   // or a definition.
   llvm::SmallPtrSet<llvm::GlobalValue*, 10> WeakRefReferences;
 
+public:
   /// This contains all the decls which have definitions but/ which are deferred
   /// for emission and therefore should only be output if they are actually
   /// used. If a decl is in this, then it is known to have not been referenced
   /// yet.
   llvm::DenseMap<StringRef, GlobalDecl> DeferredDecls;
-
+private:
   /// This is a list of deferred decls which we have seen that *are* actually
   /// referenced. These get code generated when the module is done.
   std::vector<GlobalDecl> DeferredDeclsToEmit;
@@ -361,8 +366,13 @@ private:
   llvm::DenseMap<llvm::StringRef, GlobalDecl> EmittedDeferredDecls;
 
   void addEmittedDeferredDecl(GlobalDecl GD) {
-    if (!llvm::isa<FunctionDecl>(GD.getDecl()))
+    FunctionDecl *F = llvm::dyn_cast<FunctionDecl>(const_cast<Decl *>(GD.getDecl()));
+    if (!F)
       return;
+    /// TODO: Get actual source location where it is used.
+    TheSema->PendingInstantiations.push_back({F, F->getSourceRange().getBegin()});
+    F->setInstantiationIsPending(true);
+    TheSema->PerformPendingInstantiations();
     llvm::GlobalVariable::LinkageTypes L = getFunctionLinkage(GD);
     if (llvm::GlobalValue::isLinkOnceLinkage(L) ||
         llvm::GlobalValue::isWeakLinkage(L)) {

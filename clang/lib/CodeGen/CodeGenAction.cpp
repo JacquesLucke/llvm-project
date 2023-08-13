@@ -26,6 +26,7 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Sema/SemaConsumer.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
@@ -104,7 +105,7 @@ namespace clang {
         });
     }
 
-  class BackendConsumer : public ASTConsumer {
+  class BackendConsumer : public SemaConsumer {
     using LinkModule = CodeGenAction::LinkModule;
 
     virtual void anchor();
@@ -218,6 +219,43 @@ namespace clang {
 
       if (TimerIsEnabled)
         LLVMIRGeneration.stopTimer();
+    }
+
+    Sema *TheSema = nullptr;
+    void InitializeSema(Sema &S) override {
+      TheSema = &S;
+      getCodeGenerator()->TheSema = &S;
+      getCodeGenerator()->CGM().TheSema = &S;
+    }
+
+    void HandleCXXImplicitFunctionInstantiation(FunctionDecl *D) override {
+      if (!D->hasBody()) {
+        return;
+      }
+      auto &CGM = getCodeGenerator()->CGM();
+
+      if (const CXXDestructorDecl *Destructor = dyn_cast<CXXDestructorDecl>(D)) {
+        GlobalDecl G = GlobalDecl{Destructor, Dtor_Base};
+        CGM.DeferredDecls[CGM.getMangledName(G.getWithDtorType(Dtor_Base))] = G.getWithDtorType(Dtor_Base);
+        CGM.DeferredDecls[CGM.getMangledName(G.getWithDtorType(Dtor_Complete))] = G.getWithDtorType(Dtor_Complete);
+        if (Destructor->isVirtual()) {
+          CGM.DeferredDecls[CGM.getMangledName(G.getWithDtorType(Dtor_Deleting))] = G.getWithDtorType(Dtor_Deleting);
+        }
+      }
+      else if (const CXXConstructorDecl *Constructor = dyn_cast<CXXConstructorDecl>(D)) {
+        GlobalDecl G = GlobalDecl{Constructor, Ctor_Base};
+        CGM.DeferredDecls[CGM.getMangledName(G.getWithCtorType(Ctor_Base))] = G.getWithCtorType(Ctor_Base);
+        if (!Constructor->getParent()->isAbstract()) {
+          CGM.DeferredDecls[CGM.getMangledName(G.getWithCtorType(Ctor_Complete))] = G.getWithCtorType(Ctor_Complete);
+          }
+      }
+      else {
+        DeclarationName Name = D->getDeclName();
+        DeclarationName::NameKind Kind = Name.getNameKind();
+        if (Kind != DeclarationName::CXXDeductionGuideName && Kind != DeclarationName::CXXUsingDirective) {
+          CGM.DeferredDecls[CGM.getMangledName(GlobalDecl(D))] = D;
+        }
+      }
     }
 
     bool HandleTopLevelDecl(DeclGroupRef D) override {

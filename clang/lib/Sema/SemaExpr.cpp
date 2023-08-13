@@ -18905,9 +18905,11 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
             // call to such a function.
             InstantiateFunctionDefinition(PointOfInstantiation, Func);
           else {
-            Func->setInstantiationIsPending(true);
-            PendingInstantiations.push_back(
-                std::make_pair(Func, PointOfInstantiation));
+            if (isExternalWithNoLinkageType(Func)) {
+              Func->setInstantiationIsPending(true);
+              PendingInstantiations.push_back(
+                  std::make_pair(Func, PointOfInstantiation));
+            }
             // Notify the consumer that a function was implicitly instantiated.
             Consumer.HandleCXXImplicitFunctionInstantiation(Func);
           }

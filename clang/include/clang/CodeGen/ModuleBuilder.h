@@ -36,6 +36,7 @@ namespace clang {
   class HeaderSearchOptions;
   class LangOptions;
   class PreprocessorOptions;
+  class Sema;
 
 namespace CodeGen {
   class CodeGenModule;
@@ -49,6 +50,8 @@ class CodeGenerator : public ASTConsumer {
   virtual void anchor();
 
 public:
+  Sema *TheSema = nullptr;
+
   /// Return an opaque reference to the CodeGenModule object, which can
   /// be used in various secondary APIs.  It is valid as long as the
   /// CodeGenerator exists.
