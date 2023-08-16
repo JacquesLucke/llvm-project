@@ -18,6 +18,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -1098,6 +1099,20 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     PrettyStackTraceString CrashInfo("Optimizer");
     llvm::TimeTraceScope TimeScope("Optimizer");
     MPM.run(*TheModule, MAM);
+    std::error_code ErrorCode;
+    StringRef FilePath = "/home/jacques/Downloads/bitcode.bc";
+    raw_fd_ostream OutputFile(FilePath, ErrorCode);
+    WriteBitcodeToFile(*TheModule, OutputFile);
+    OutputFile.close();
+
+    {
+      std::unique_ptr<MemoryBuffer> buffer = std::move(*MemoryBuffer::getFile(FilePath));
+      SMDiagnostic Diagnostics;
+      std::unique_ptr<Module> LoadedModule = getLazyIRModule(std::move(buffer), Diagnostics, TheModule->getContext());
+      llvm::Function *f = LoadedModule->getFunction("hello_world");
+      if (f->materialize()) {}
+      int a = 0;
+    }
   }
 }
 
